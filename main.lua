@@ -1,15 +1,24 @@
+--
+-- TODO: use a spritesheet with circle
+--
 require 'drystal'
 local tt = require 'truetype'
 
 local width, height = 600, 480
 local time = 0
 
+local score = 0
+
 local scope = {
 	x=0,
 	y=0,
-	size=20,
+	size=10,
 	color={255, 0, 0},
 	alpha=255,
+	range=10,
+
+	target=nil,
+	since=nil,
 }
 
 local targets = {}
@@ -21,16 +30,49 @@ function scope:draw()
 end
 
 function scope:update(dt)
-	self.alpha = (math.sin(time*5)+1)/2*200+50
+	local abs = math.abs
+	if not self.target then
+		for i, t in ipairs(targets) do
+			if abs(self.x - t.x) < t.size then
+				if abs(self.y - t.y) < t.size then
+					self.target = t
+					self.since = time
+					break
+				end
+			end
+		end
+	end
+	if self.target then
+		if abs(self.x - self.target.x) > self.target.size
+		or abs(self.y - self.target.y) > self.target.size then
+			self.target = nil
+		end
+	end
+	if self.target then
+		self.alpha = (math.sin((time - self.since)*5)+1)/2*200+50
+		if time - self.since > self.target.size/10 then
+			for i, t in ipairs(targets) do
+				if t == self.target then table.remove(targets, i) end
+			end
+			score = (self.target.good and 1 or -1) * self.target.size
+			self.target = nil
+		end
+	else
+		self.alpha = 255
+	end
 end
 
+local font
 
 function init()
 	show_cursor(false)
 	resize(width, height)
+	font = tt.load('arial.ttf', 30)
+	tt.use(font)
 
-	for i=0, 10 do
-		add_target(math.random(2)==1)
+	for i=0, 5 do
+		add_target(false)
+		add_target(true)
 	end
 end
 
@@ -46,6 +88,8 @@ function draw()
 
 	scope:draw()
 
+	tt.draw("Score: " .. score, 0, 0)
+
 	flip()
 end
 
@@ -54,6 +98,7 @@ function update(dt)
 	time = time + dt
 
 	scope:update(dt)
+
 	for i, t in ipairs(targets) do
 		t.x = t.x + t.dx * t.speed * dt
 		t.y = t.y + t.dy * t.speed * dt
@@ -78,7 +123,7 @@ function add_target(good)
 	local t = {
 		x=math.random(width),
 		y=math.random(height),
-		speed=math.random()*50 + 40,
+		speed=math.random()*70 + 30,
 		dx=math.random(2)==1 and -1 or 1,
 		dy=math.random(2)==1 and -1 or 1,
 		size=math.random(5, 20),
