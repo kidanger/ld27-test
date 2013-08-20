@@ -12,23 +12,77 @@
       div.emscripten_border { border: 1px solid black; }
       /* the canvas *must not* have any border or padding, or mouse coords will be wrong */
       canvas.emscripten { border: 0px none; }
+
+      progress {
+        text-align:left;
+        overflow:hidden;
+        clear:both;
+        color:#ffffff;
+        font-weight:bold;
+        width:25%;
+        height:24px;
+        margin:0;
+        padding:0;
+        background:transparent;
+      }
+      progress {
+        appearance:none;
+        -moz-appearance:none;
+        -webkit-appearance:none;
+        border:3px solid #333333;
+        background-size:auto;
+      }
+      progress::-moz-progress-bar
+      {
+        background:#3a3a3a;
+      }
+      progress::-webkit-progress-value
+      {
+        background:#3a3a3a;
+      }
+
     </style>
   </head>
   <body>
-    <h2>Hover circles with your cursor.</h>
-    <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()"></canvas>
+    <h2>Hover circles with your cursor.</h2>
+
+    <div class="emscripten">
+      <progress value="0" max="100" id="progress"></progress>
+    </div>
+
+    <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" ></canvas>
 
     <script type='text/javascript'>
       // connect to canvas
       var Module = {
         preRun: [],
         postRun: [],
-        print: (function() {
-        })(),
+        print: function(text) {
+            console.log(text);
+        },
         printErr: function(text) {
+            console.log(text);
         },
         canvas: document.getElementById('canvas'),
+        tick: function() {
+          var progress = document.getElementById('progress');
+          if (progress.hidden)
+            return;
+          progress.value += 3;
+          if (progress.value < 100) {
+            setTimeout(function() { Module.setStatus("tick") }, 100);
+          }
+        },
         setStatus: function(text) {
+          if (Module.setStatus.interval) clearInterval(Module.setStatus.interval);
+          var progress = document.getElementById('progress');
+          console.log(text);
+          if (text != '') {
+            progress.hidden = false;
+            setTimeout(function() { Module.tick(); }, 100);
+          } else {
+            progress.hidden = true;
+          }
         },
         totalDependencies: 0,
         monitorRunDependencies: function(left) {
