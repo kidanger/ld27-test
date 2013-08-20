@@ -76,7 +76,7 @@ end
 function init()
 	show_cursor(false)
 	resize(width, height)
-	font = tt.load('arial.ttf', 30)
+	font = tt.load('coldnightforalligators.ttf', 40)
 	tt.use(font)
 
 	reload()
