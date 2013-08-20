@@ -1,8 +1,11 @@
 --
 -- TODO: use a spritesheet with circle
 --
+
 require 'drystal'
 local tt = require 'truetype'
+
+math.randomseed(os.time())
 
 local width, height = 600, 600
 local time = 0
