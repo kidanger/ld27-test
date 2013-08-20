@@ -85,8 +85,8 @@ end
 function reload()
 	for i=0, 5 do
 		add_target(false)
+		add_target(true)
 	end
-	add_target(true)
 	gamestate = RUN
 end
 
