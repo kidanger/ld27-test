@@ -25,8 +25,8 @@ local pop = load_sound('pop.wav')
 local score = 0
 
 local scope = {
-	x=0,
-	y=0,
+	x=width/2,
+	y=height/2,
 	size=10,
 	color={255, 0, 0},
 	alpha=255,
