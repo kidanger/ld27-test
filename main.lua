@@ -20,6 +20,7 @@ local END = {
 local gamestate
 
 local font
+local pop = load_sound('pop.wav')
 
 local score = 0
 
@@ -70,6 +71,7 @@ function scope:update(dt)
 			score = (self.target.good and 1 or -1) * self.target.size * 100 * (1 + math.random())
 			score = math.floor(score)
 			self.target = nil
+			play_sound(pop)
 		end
 	else
 		self.alpha = 255
