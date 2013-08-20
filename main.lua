@@ -4,8 +4,19 @@
 require 'drystal'
 local tt = require 'truetype'
 
-local width, height = 600, 480
+local width, height = 600, 600
 local time = 0
+
+local RUN = {
+	x=0, y=0,
+}
+local END = {
+	x=-100, y=-100,
+	tx=width/2, ty=height/2,
+}
+local gamestate
+
+local font
 
 local score = 0
 
@@ -15,7 +26,6 @@ local scope = {
 	size=10,
 	color={255, 0, 0},
 	alpha=255,
-	range=10,
 
 	target=nil,
 	since=nil,
@@ -33,8 +43,8 @@ function scope:update(dt)
 	local abs = math.abs
 	if not self.target then
 		for i, t in ipairs(targets) do
-			if abs(self.x - t.x) < t.size then
-				if abs(self.y - t.y) < t.size then
+			if abs(self.x - t.x) < t.size*2 then
+				if abs(self.y - t.y) < t.size*2 then
 					self.target = t
 					self.since = time
 					break
@@ -43,8 +53,8 @@ function scope:update(dt)
 		end
 	end
 	if self.target then
-		if abs(self.x - self.target.x) > self.target.size
-		or abs(self.y - self.target.y) > self.target.size then
+		if abs(self.x - self.target.x) > self.target.size*2
+		or abs(self.y - self.target.y) > self.target.size*2 then
 			self.target = nil
 		end
 	end
@@ -54,7 +64,8 @@ function scope:update(dt)
 			for i, t in ipairs(targets) do
 				if t == self.target then table.remove(targets, i) end
 			end
-			score = (self.target.good and 1 or -1) * self.target.size
+			score = (self.target.good and 1 or -1) * self.target.size * 100 * (1 + math.random())
+			score = math.floor(score)
 			self.target = nil
 		end
 	else
@@ -62,18 +73,21 @@ function scope:update(dt)
 	end
 end
 
-local font
-
 function init()
 	show_cursor(false)
 	resize(width, height)
 	font = tt.load('arial.ttf', 30)
 	tt.use(font)
 
+	reload()
+end
+
+function reload()
 	for i=0, 5 do
 		add_target(false)
-		add_target(true)
 	end
+	add_target(true)
+	gamestate = RUN
 end
 
 function draw()
@@ -88,7 +102,12 @@ function draw()
 
 	scope:draw()
 
-	tt.draw("Score: " .. score, 0, 0)
+	set_alpha(255)
+	if gamestate == END then
+		local text = "Score: " .. score
+		local w, h = tt.sizeof(text)
+		tt.draw(text, gamestate.x - w / 2, gamestate.y - h/2)
+	end
 
 	flip()
 end
@@ -97,26 +116,46 @@ function update(dt)
 	dt = dt / 1000
 	time = time + dt
 
-	scope:update(dt)
+	if gamestate == RUN then
+		scope:update(dt)
 
-	for i, t in ipairs(targets) do
-		t.x = t.x + t.dx * t.speed * dt
-		t.y = t.y + t.dy * t.speed * dt
-		if t.x-t.size < 0 then
-			t.dx = t.dx * -1
-			t.x = t.size
-		elseif t.x+t.size > width then
-			t.dx = t.dx * -1
-			t.x = width-t.size
+		local goods = 0
+		for i, t in ipairs(targets) do
+			if t.good then goods = goods + 1 end
+			t.x = t.x + t.dx * t.speed * dt
+			t.y = t.y + t.dy * t.speed * dt
+			if t.x-t.size < 0 then
+				t.dx = t.dx * -1
+				t.x = t.size
+			elseif t.x+t.size > width then
+				t.dx = t.dx * -1
+				t.x = width-t.size
+			end
+			if t.y-t.size < 0 then
+				t.dy = t.dy * -1
+				t.y = t.size
+			elseif t.y+t.size > height then
+				t.dy = t.dy * -1
+				t.y = height-t.size
+			end
 		end
-		if t.y-t.size < 0 then
-			t.dy = t.dy * -1
-			t.y = t.size
-		elseif t.y+t.size > height then
-			t.dy = t.dy * -1
-			t.y = height-t.size
+
+		if goods == 0 and gamestate == RUN then
+			gamestate = END
 		end
 	end
+
+	if gamestate == END then
+		local dx = gamestate.tx - gamestate.x
+		local dy = gamestate.ty - gamestate.y
+		if dx > 0 then
+			gamestate.x = gamestate.x + dt*200
+		end
+		if dy > 0 then
+			gamestate.y = gamestate.y + dt*200
+		end
+	end
+
 end
 
 function add_target(good)
@@ -144,7 +183,9 @@ end
 
 function key_press(k)
 	if k == 'a' then
-		print('stop')
 		engine_stop()
+	end
+	if k == 'return' and gamestate == END then
+		reload()
 	end
 end
