@@ -5,6 +5,10 @@ function init()
 end
 
 function draw()
+	set_color(255, 255, 255)
+	draw_background()
+
+	flip()
 end
 
 function update(dt)
