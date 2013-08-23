@@ -4,6 +4,7 @@
 
 require 'drystal'
 local tt = require 'truetype'
+local timer = require 'hump.timer'
 
 math.randomseed(os.time())
 
@@ -14,12 +15,13 @@ local RUN = {
 	x=0, y=0,
 }
 local END = {
-	x=-100, y=-100,
+	x=0, y=-20,
 	tx=width/2, ty=height/2,
 }
 local gamestate
 
-local font
+local font, image
+local ball_sprite = {x=0, y=0, w=64, h=64}
 local pop = load_sound('pop.wav')
 
 local score = 0
@@ -27,67 +29,95 @@ local score = 0
 local scope = {
 	x=width/2,
 	y=height/2,
-	size=10,
+	radius=10,
+
 	color={255, 0, 0},
-	alpha=255,
+	default_alpha=100,
+	alpha=100,
+	alpha_handle=nil,
 
 	target=nil,
 	since=nil,
+
+	swiftw=0,
+	swifth=0,
+	swift_handle=nil,
 }
 
 local targets = {}
 
-function scope:draw()
-	set_color(self.color)
-	set_alpha(self.alpha)
-	draw_circle(self.x, self.y, self.size)
+function remove_target(target)
+	for i, t in ipairs(targets) do
+		if t == target then table.remove(targets, i) end
+	end
 end
+
 
 function scope:update(dt)
 	local abs = math.abs
 	if not self.target then
 		for i, t in ipairs(targets) do
-			if abs(self.x - t.x) < t.size*2 then
-				if abs(self.y - t.y) < t.size*2 then
+			if t.alive and abs(self.x - t.x) < t.radius*2 then
+				if abs(self.y - t.y) < t.radius*2 then
 					self.target = t
 					self.since = time
+					if self.alpha_handle then
+						timer.cancel(self.alpha_handle)
+					end
+					self.alpha_handle = timer.tween(self.target.radius/10,
+													self, {alpha=255}, 'expo')
 					break
 				end
 			end
 		end
 	end
 	if self.target then
-		if abs(self.x - self.target.x) > self.target.size*2
-		or abs(self.y - self.target.y) > self.target.size*2 then
+		if abs(self.x - self.target.x) > self.target.radius*2
+		or abs(self.y - self.target.y) > self.target.radius*2 then
 			self.target = nil
+			self:reset_alpha()
 		end
 	end
 	if self.target then
-		self.alpha = (math.sin((time - self.since)*5)+1)/2*200+50
-		if time - self.since > self.target.size/10 then
-			for i, t in ipairs(targets) do
-				if t == self.target then table.remove(targets, i) end
-			end
-			score = (self.target.good and 1 or -1) * self.target.size * 100 * (1 + math.random())
+		if time - self.since > self.target.radius/10 then
+			score = (self.target.good and 1 or -1) * self.target.radius * 100 * (1 + math.random())
 			score = math.floor(score)
-			self.target = nil
+
 			play_sound(pop)
+			local the_target = self.target
+			the_target.alive = false
+			timer.tween(2, the_target, {w=1}, 'bounce')
+			timer.tween(2, the_target, {h=1}, 'bounce')
+			timer.add(2, function() remove_target(the_target) end)
+
+			self.target = nil
+			self:reset_alpha()
 		end
-	else
-		self.alpha = 255
 	end
+end
+
+function scope:reset_alpha()
+	if self.alpha_handle then
+		timer.cancel(self.alpha_handle)
+	end
+	self.alpha_handle = timer.tween(1, self, {alpha=self.default_alpha}, 'quad')
 end
 
 function init()
 	show_cursor(false)
 	resize(width, height)
+
 	font = tt.load('coldnightforalligators.ttf', 40)
 	tt.use(font)
+
+	image = load_surface('ball.png')
+	draw_from(image)
 
 	reload()
 end
 
 function reload()
+	targets = {}
 	for i=0, 5 do
 		add_target(false)
 		add_target(true)
@@ -102,10 +132,14 @@ function draw()
 
 	for i, t in ipairs(targets) do
 		set_color(t.color)
-		draw_circle(t.x, t.y, t.size)
+		draw_sprite_resized(ball_sprite, t.x - t.w/2, t.y - t.h/2,
+							t.w, t.h)
 	end
 
-	scope:draw()
+	set_color(scope.color)
+	set_alpha(scope.alpha)
+	local x, y = scope.x - scope.radius, scope.y - scope.radius
+	draw_sprite_resized(ball_sprite, x, y, scope.radius*2 + scope.swiftw, scope.radius*2 + scope.swifth)
 
 	set_alpha(255)
 	if gamestate == END then
@@ -126,63 +160,80 @@ function update(dt)
 
 		local goods = 0
 		for i, t in ipairs(targets) do
-			if t.good then goods = goods + 1 end
-			t.x = t.x + t.dx * t.speed * dt
-			t.y = t.y + t.dy * t.speed * dt
-			if t.x-t.size < 0 then
-				t.dx = t.dx * -1
-				t.x = t.size
-			elseif t.x+t.size > width then
-				t.dx = t.dx * -1
-				t.x = width-t.size
-			end
-			if t.y-t.size < 0 then
-				t.dy = t.dy * -1
-				t.y = t.size
-			elseif t.y+t.size > height then
-				t.dy = t.dy * -1
-				t.y = height-t.size
+			if t.alive then
+				if t.good then goods = goods + 1 end
+				t.x = t.x + t.dx * t.speed * dt
+				t.y = t.y + t.dy * t.speed * dt
+				local collidex
+				local collidey
+				if t.x-t.radius < 0 then
+					t.dx = t.dx * -1
+					t.x = t.radius
+					collidex = true
+				elseif t.x+t.radius > width then
+					t.dx = t.dx * -1
+					t.x = width-t.radius
+					collidex = true
+				end
+				if t.y-t.radius < 0 then
+					t.dy = t.dy * -1
+					t.y = t.radius
+					collidey = true
+				elseif t.y+t.radius > height then
+					t.dy = t.dy * -1
+					t.y = height-t.radius
+					collidey = true
+				end
+				if collidex then
+					t.h = t.radius*3
+					timer.tween(.6, t, {h=t.radius*2}, 'in-bounce')
+				end
+				if collidey then
+					t.w = t.radius*3
+					timer.tween(.6, t, {w=t.radius*2}, 'in-bounce')
+				end
 			end
 		end
 
 		if goods == 0 and gamestate == RUN then
 			gamestate = END
+			timer.tween(2.7, gamestate, {x=gamestate.tx})
+			timer.tween(3, gamestate, {y=gamestate.ty}, 'in-bounce')
 		end
 	end
 
-	if gamestate == END then
-		local dx = gamestate.tx - gamestate.x
-		local dy = gamestate.ty - gamestate.y
-		if dx > 0 then
-			gamestate.x = gamestate.x + dt*200
-		end
-		if dy > 0 then
-			gamestate.y = gamestate.y + dt*200
-		end
-	end
-
+	timer.update(dt)
 end
 
 function add_target(good)
 	local t = {
-		x=math.random(width),
-		y=math.random(height),
+		x=math.random(width-40) + 20,
+		y=math.random(height-40) + 20,
 		speed=math.random()*70 + 30,
 		dx=math.random(2)==1 and -1 or 1,
 		dy=math.random(2)==1 and -1 or 1,
-		size=math.random(5, 20),
-		good=good
+		radius=math.random(5, 20),
+		good=good,
+		alive=true,
 	}
+	t.w = t.radius * 2
+	t.h = t.radius * 2
 	if good then
-		t.color = {200, 200, 200}
-	else
 		t.color = {100, 100, 100}
+	else
+		t.color = {50, 50, 50}
 	end
 	table.insert(targets, t)
 end
 
 
-function mouse_motion(x, y)
+function mouse_motion(x, y, dx, dy)
+	scope.swiftw = math.abs(dx)
+	scope.swifth = math.abs(dy)
+	if scope.swift_handle then
+		timer.cancel(scope.swift_handle)
+	end
+	scope.swift_handle = timer.tween(0.3, scope, {swiftw=0, swifth=0}, 'in-bounce')
 	scope.x, scope.y = x, y
 end
 
