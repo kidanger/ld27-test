@@ -1,7 +1,3 @@
---
--- TODO: use a spritesheet with circle
---
-
 require 'drystal'
 local tt = require 'truetype'
 local timer = require 'hump.timer'
