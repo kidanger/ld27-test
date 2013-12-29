@@ -1,4 +1,4 @@
-require 'drystal'
+local drystal = require 'drystal'
 local tt = require 'truetype'
 local timer = require 'hump.timer'
 
@@ -18,7 +18,7 @@ local gamestate
 
 local font, image
 local ball_sprite = {x=0, y=0, w=64, h=64}
-local pop = load_sound('pop.wav')
+local pop = drystal.load_sound('pop.wav')
 
 local score = 0
 
@@ -79,7 +79,7 @@ function scope:update(dt)
 			score = (self.target.good and 1 or -1) * self.target.radius * 100 * (1 + math.random())
 			score = math.floor(score)
 
-			play_sound(pop)
+			pop:play()
 			local the_target = self.target
 			the_target.alive = false
 			timer.tween(2, the_target, {w=1}, 'bounce')
@@ -100,14 +100,14 @@ function scope:reset_alpha()
 end
 
 function init()
-	show_cursor(false)
-	resize(width, height)
+	drystal.show_cursor(false)
+	drystal.resize(width, height)
 
 	font = tt.load('coldnightforalligators.ttf', 40)
 	tt.use(font)
 
-	image = load_surface('ball.png')
-	draw_from(image)
+	image = drystal.load_surface('ball.png')
+	drystal.draw_from(image)
 
 	reload()
 end
@@ -122,29 +122,27 @@ function reload()
 end
 
 function draw()
-	set_alpha(255)
-	set_color(0, 0, 0)
-	draw_background()
+	drystal.set_alpha(255)
+	drystal.set_color(0, 0, 0)
+	drystal.draw_background()
 
 	for i, t in ipairs(targets) do
-		set_color(t.color)
-		draw_sprite_resized(ball_sprite, t.x - t.w/2, t.y - t.h/2,
+		drystal.set_color(t.color)
+		drystal.draw_sprite_resized(ball_sprite, t.x - t.w/2, t.y - t.h/2,
 							t.w, t.h)
 	end
 
-	set_color(scope.color)
-	set_alpha(scope.alpha)
+	drystal.set_color(scope.color)
+	drystal.set_alpha(scope.alpha)
 	local x, y = scope.x - scope.radius, scope.y - scope.radius
-	draw_sprite_resized(ball_sprite, x, y, scope.radius*2 + scope.swiftw, scope.radius*2 + scope.swifth)
+	drystal.draw_sprite_resized(ball_sprite, x, y, scope.radius*2 + scope.swiftw, scope.radius*2 + scope.swifth)
 
-	set_alpha(255)
+	drystal.set_alpha(255)
 	if gamestate == END then
 		local text = "Score: " .. score
 		local w, h = tt.sizeof(text)
 		tt.draw(text, gamestate.x - w / 2, gamestate.y - h/2)
 	end
-
-	flip()
 end
 
 function update(dt)
@@ -235,7 +233,7 @@ end
 
 function key_press(k)
 	if k == 'a' then
-		engine_stop()
+		drystal.stop()
 	end
 	if k == 'return' and gamestate == END then
 		reload()
